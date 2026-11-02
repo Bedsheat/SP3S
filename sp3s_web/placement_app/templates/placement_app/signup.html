@@ -1,0 +1,524 @@
+{% extends 'placement_app/base.html' %}
+
+{% block title %}Register with Autonomous Resume Ingestion — SP3S{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-8">
+
+    <!-- Hero Header -->
+    <div class="text-center max-w-2xl mx-auto">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-azure-500/10 border border-azure-500/25 text-azure-400 font-mono text-[11px] mb-3">
+            <i class="fa-solid fa-microchip text-azure-400"></i>
+            <span>AUTONOMOUS RESUME INGESTION ENGINE</span>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+            Candidate Profile Registration
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
+            Drop your PDF Resume to extract academic metrics, contact credentials, and technical proficiencies via Groq Cloud LLM, or populate manually below.
+        </p>
+    </div>
+
+    {% if error %}
+    <div class="p-4 bg-crimson-500/10 border border-crimson-500/30 rounded-xl text-crimson-300 text-xs flex items-center gap-3">
+        <i class="fa-solid fa-triangle-exclamation text-crimson-400 text-base"></i>
+        <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
+    <!-- Resume Ingestion Deck -->
+    <div class="surface-card rounded-2xl p-6 sm:p-8 space-y-6">
+        
+        <!-- Header Controls: Engine Provider & Key Config -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 hairline-b">
+            <div>
+                <h2 class="text-sm font-bold text-white flex items-center gap-2 font-mono">
+                    <span class="w-2 h-2 rounded-full bg-azure-400 animate-pulse"></span>
+                    STAGE 01 &bull; RESUME INGESTION & ENTITY PARSING
+                </h2>
+                <p class="text-[11px] text-slate-400 mt-0.5">Automated layout analysis and entity normalization</p>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <!-- Provider Selector -->
+                <div class="relative">
+                    <select id="llm-provider-select" class="bg-obsidian-950 border border-slate-800 text-[11px] font-mono text-slate-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-azure-500 transition">
+                        <option value="groq" selected>⚡ Groq Cloud LLM (Ultra Fast)</option>
+                        <option value="huggingface">🤗 Hugging Face</option>
+                        <option value="gemini">✨ Google Gemini</option>
+                        <option value="auto">🔄 Auto (Best Available)</option>
+                        <option value="regex">⚙️ Advanced Regex (Offline)</option>
+                    </select>
+                </div>
+
+                <!-- API Key Config Button -->
+                <button type="button" id="toggle-key-panel" class="text-[11px] font-mono bg-obsidian-900 hover:bg-obsidian-800 text-slate-300 border border-slate-700/80 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-key text-amber-400 text-[10px]"></i>
+                    <span id="key-status-label">API Key</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Collapsible Token Config Panel -->
+        <div id="key-config-panel" class="hidden p-4 rounded-xl bg-obsidian-950 border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+                <span class="font-semibold text-slate-200 flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-halved text-azure-400"></i>
+                    Custom LLM Token Configuration
+                </span>
+                <span class="text-[10px] font-mono text-slate-500">SESSION PERSISTED</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <div class="sm:col-span-3 relative">
+                    <input type="password" id="custom-api-key-input" placeholder="Paste Groq Key (gsk_...) or HF Token (hf_...)" class="w-full bg-obsidian-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-azure-500 pr-9 font-mono">
+                    <button type="button" id="toggle-key-visibility" class="absolute right-2.5 top-2.5 text-xs text-slate-500 hover:text-white">
+                        <i class="fa-solid fa-eye"></i>
+                    </button>
+                </div>
+                <button type="button" id="save-key-btn" class="py-2 px-3 bg-azure-600 hover:bg-azure-500 text-white rounded-lg text-xs font-bold transition flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-floppy-disk text-[11px]"></i> Save Token
+                </button>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 text-[11px] font-mono text-slate-400 pt-1">
+                <span>Free keys:</span>
+                <a href="https://console.groq.com/keys" target="_blank" class="text-azure-400 hover:underline">Get Groq Key</a>
+                <span>&bull;</span>
+                <a href="https://huggingface.co/settings/tokens" target="_blank" class="text-amber-400 hover:underline">Get HF Token</a>
+                <span id="saved-key-indicator" class="hidden text-emerald-400 font-semibold ml-auto flex items-center gap-1">
+                    <i class="fa-solid fa-circle-check"></i> Token Active
+                </span>
+            </div>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div id="drop-zone" class="border-2 border-dashed border-slate-800 hover:border-azure-500/60 rounded-2xl p-8 text-center cursor-pointer transition duration-300 bg-obsidian-950/40 hover:bg-obsidian-950/80 group">
+            <input type="file" id="resume-input" name="resume_pdf" accept=".pdf" class="hidden" form="signup-form">
+            
+            <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-azure-500/10 border border-azure-500/20 text-azure-400 flex items-center justify-center text-xl group-hover:scale-110 transition duration-300">
+                <i class="fa-solid fa-file-arrow-up"></i>
+            </div>
+            
+            <p class="text-sm font-bold text-slate-200">Drag and drop student PDF resume here, or <span class="text-azure-400 underline underline-offset-4">browse files</span></p>
+            <p class="text-[11px] font-mono text-slate-400 mt-1">Accepts standard CV / Resume PDFs &bull; Parses Academics, Contact & Tech Stack</p>
+
+            <!-- Loading Spinner & Progress -->
+            <div id="parsing-spinner" class="hidden mt-6 p-4 rounded-xl bg-obsidian-900 border border-slate-800/80 max-w-md mx-auto">
+                <div class="flex items-center justify-center gap-3 text-xs font-semibold text-azure-400 font-mono">
+                    <i class="fa-solid fa-circle-notch fa-spin text-sm"></i>
+                    <span id="parsing-status">Initiating Groq LLM Parsing...</span>
+                </div>
+                <div class="w-full bg-slate-800 h-1 rounded-full mt-3 overflow-hidden">
+                    <div class="bg-azure-400 h-full w-2/3 animate-pulse"></div>
+                </div>
+                <p id="parsing-substatus" class="text-[10px] font-mono text-slate-400 mt-2">Extracting layout & tables via PyMuPDF...</p>
+            </div>
+
+            <!-- Upload Success Pill -->
+            <div id="file-success" class="hidden mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
+                <i class="fa-solid fa-check"></i>
+                <span id="file-name">Document loaded</span>
+            </div>
+        </div>
+
+        <!-- Live Parsed Resume Intelligence Card -->
+        <div id="extracted-preview-card" class="hidden p-6 rounded-2xl bg-obsidian-950/90 border border-emerald-500/30 shadow-xl space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 hairline-b">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <h3 class="text-xs font-mono font-bold uppercase text-white tracking-wider">
+                        EXTRACTED CANDIDATE INTELLIGENCE
+                    </h3>
+                </div>
+                <div id="extracted-method-badge" class="metric-badge bg-emerald-500/10 text-emerald-400 border-emerald-500/30 self-start sm:self-auto">
+                    <i class="fa-solid fa-bolt text-amber-300"></i>
+                    <span>Groq LLM Ingestion</span>
+                </div>
+            </div>
+
+            <!-- Candidate Identity Block -->
+            <div class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-obsidian-900 border border-slate-800 text-xs">
+                <div class="flex items-center gap-2 text-slate-300">
+                    <i class="fa-solid fa-user-check text-azure-400"></i>
+                    <span class="font-mono text-[11px] text-slate-400">CANDIDATE:</span>
+                    <strong id="preview-name" class="text-white font-bold">-</strong>
+                    <button type="button" id="btn-use-name" class="ml-2 px-2 py-0.5 rounded bg-azure-500/20 hover:bg-azure-500/30 text-azure-300 text-[10px] font-mono transition hidden">
+                        Use as Username
+                    </button>
+                </div>
+                <div class="flex items-center gap-2 text-slate-300">
+                    <i class="fa-solid fa-envelope text-indigo-400"></i>
+                    <span id="preview-email" class="font-mono text-slate-300 text-xs">-</span>
+                    <button type="button" id="btn-use-email" class="ml-2 px-2 py-0.5 rounded bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-mono transition hidden">
+                        Use Email
+                    </button>
+                </div>
+            </div>
+
+            <!-- Academic Metrics Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div class="p-3 rounded-xl bg-obsidian-900 border border-slate-800 text-center">
+                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">BRANCH</span>
+                    <span id="preview-branch" class="text-lg font-black text-azure-400 font-mono-numbers mt-0.5 block">-</span>
+                </div>
+                <div class="p-3 rounded-xl bg-obsidian-900 border border-slate-800 text-center">
+                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">CGPA (OUT OF 10)</span>
+                    <span id="preview-cgpa" class="text-lg font-black text-emerald-400 font-mono-numbers mt-0.5 block">-</span>
+                </div>
+                <div class="p-3 rounded-xl bg-obsidian-900 border border-slate-800 text-center">
+                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">10TH CLASS</span>
+                    <span id="preview-tenth" class="text-lg font-black text-indigo-400 font-mono-numbers mt-0.5 block">-</span>
+                </div>
+                <div class="p-3 rounded-xl bg-obsidian-900 border border-slate-800 text-center">
+                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">12TH CLASS</span>
+                    <span id="preview-twelfth" class="text-lg font-black text-purple-400 font-mono-numbers mt-0.5 block">-</span>
+                </div>
+                <div class="col-span-2 sm:col-span-1 p-3 rounded-xl bg-obsidian-900 border border-slate-800 text-center">
+                    <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">INTERNSHIP STIPEND</span>
+                    <span id="preview-stipend" class="text-lg font-black text-amber-400 font-mono-numbers mt-0.5 block">-</span>
+                </div>
+            </div>
+
+            <!-- Identified Technical Competencies -->
+            <div id="preview-skills-container" class="hidden pt-1">
+                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider block mb-2">
+                    IDENTIFIED TECHNICAL COMPETENCIES:
+                </span>
+                <div id="preview-skills-list" class="flex flex-wrap gap-1.5"></div>
+            </div>
+
+            <p class="text-[11px] font-mono text-emerald-400 flex items-center gap-1.5 pt-1">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Parameters populated into registration vector below. Verify or modify anytime.</span>
+            </p>
+        </div>
+
+    </div>
+
+    <!-- Candidate Registration Form -->
+    <form id="signup-form" method="POST" enctype="multipart/form-data" class="surface-card rounded-2xl p-6 sm:p-8 space-y-8">
+        {% csrf_token %}
+        <input type="hidden" name="api_key" id="hidden-api-key">
+        <input type="hidden" name="provider" id="hidden-provider" value="groq">
+
+        <!-- Section 1: Credentials -->
+        <div>
+            <div class="pb-3 hairline-b mb-6">
+                <h3 class="text-sm font-bold text-white font-mono flex items-center gap-2">
+                    <span class="text-azure-400 font-black">02</span>
+                    <span>ACCOUNT CREDENTIALS & SECURITY</span>
+                </h3>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">Candidate Username</label>
+                    <input type="text" id="field-username" name="username" required placeholder="e.g. arnav_viksit" class="w-full bg-obsidian-950 border border-slate-800 focus:border-azure-500 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-azure-500/20 transition">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">Institutional Email Address</label>
+                    <input type="email" id="field-email" name="email" placeholder="student@spit.ac.in" class="w-full bg-obsidian-950 border border-slate-800 focus:border-azure-500 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-azure-500/20 transition">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                <div>
+                    <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">Password</label>
+                    <input type="password" name="password" required placeholder="••••••••••••" class="w-full bg-obsidian-950 border border-slate-800 focus:border-azure-500 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-azure-500/20 transition">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">Confirm Password</label>
+                    <input type="password" name="confirm_password" required placeholder="••••••••••••" class="w-full bg-obsidian-950 border border-slate-800 focus:border-azure-500 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-azure-500/20 transition">
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Academic & Economic Parameters -->
+        <div>
+            <div class="pb-3 hairline-b mb-6 flex items-center justify-between">
+                <h3 class="text-sm font-bold text-white font-mono flex items-center gap-2">
+                    <span class="text-azure-400 font-black">03</span>
+                    <span>NORMALIZED ACADEMIC & PLACEMENT PARAMETERS</span>
+                </h3>
+                <span id="ai-badge" class="hidden metric-badge bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                    <i class="fa-solid fa-sparkles text-[10px]"></i>
+                    <span>Auto-populated</span>
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">Academic Department / Branch</label>
+                    <select id="field-branch" name="branch" class="w-full bg-obsidian-950 border border-slate-800 focus:border-azure-500 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-azure-500/20 transition">
+                        {% for code, label in branches %}
+                            <option value="{{ code }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">Undergraduate / Postgrad CGPA (0.00 – 10.00)</label>
+                    <input type="number" step="0.01" min="0" max="10" id="field-cgpa" name="cgpa" value="8.0" required class="w-full bg-obsidian-950 border border-slate-800 focus:border-azure-500 rounded-xl px-4 py-2.5 text-xs text-white font-mono-numbers focus:outline-none focus:ring-1 focus:ring-azure-500/20 transition">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                <div>
+                    <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">10th Class Score (%)</label>
+                    <input type="number" step="0.1" min="0" max="100" id="field-tenth" name="tenth_percentage" value="85.0" required class="w-full bg-obsidian-950 border border-slate-800 focus:border-azure-500 rounded-xl px-4 py-2.5 text-xs text-white font-mono-numbers focus:outline-none focus:ring-1 focus:ring-azure-500/20 transition">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">12th Class / Diploma Score (%)</label>
+                    <input type="number" step="0.1" min="0" max="100" id="field-twelfth" name="twelfth_percentage" value="85.0" required class="w-full bg-obsidian-950 border border-slate-800 focus:border-azure-500 rounded-xl px-4 py-2.5 text-xs text-white font-mono-numbers focus:outline-none focus:ring-1 focus:ring-azure-500/20 transition">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-mono text-slate-400 uppercase tracking-wider mb-2">Monthly Internship Stipend (₹ INR)</label>
+                    <input type="number" step="1000" min="0" id="field-stipend" name="stipend" value="0" required class="w-full bg-obsidian-950 border border-slate-800 focus:border-azure-500 rounded-xl px-4 py-2.5 text-xs text-white font-mono-numbers focus:outline-none focus:ring-1 focus:ring-azure-500/20 transition">
+                </div>
+            </div>
+        </div>
+
+        <div class="pt-4">
+            <button type="submit" class="w-full py-4 px-6 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-azure-600 via-indigo-600 to-azure-600 hover:from-azure-500 hover:to-indigo-500 shadow-xl shadow-azure-500/25 border border-azure-400/30 transition duration-300 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-chart-line text-sm"></i>
+                <span>Register Candidate & Generate Placement Forecast</span>
+            </button>
+        </div>
+
+        <p class="text-center text-xs text-slate-400">
+            Already registered with SP3S? 
+            <a href="{% url 'login' %}" class="text-azure-400 hover:text-azure-300 font-semibold underline underline-offset-4 ml-1">
+                Authenticate here
+            </a>
+        </p>
+    </form>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const STORAGE_KEY_TOKEN = 'sp3s_llm_api_key';
+    const STORAGE_KEY_PROVIDER = 'sp3s_llm_provider';
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('resume-input');
+    const spinner = document.getElementById('parsing-spinner');
+    const statusText = document.getElementById('parsing-status');
+    const substatusText = document.getElementById('parsing-substatus');
+    const fileSuccess = document.getElementById('file-success');
+    const fileNameSpan = document.getElementById('file-name');
+    const aiBadge = document.getElementById('ai-badge');
+    const providerSelect = document.getElementById('llm-provider-select');
+    const toggleKeyBtn = document.getElementById('toggle-key-panel');
+    const keyPanel = document.getElementById('key-config-panel');
+    const customKeyInput = document.getElementById('custom-api-key-input');
+    const saveKeyBtn = document.getElementById('save-key-btn');
+    const keyStatusLabel = document.getElementById('key-status-label');
+    const savedKeyIndicator = document.getElementById('saved-key-indicator');
+    const toggleVisibilityBtn = document.getElementById('toggle-key-visibility');
+
+    const previewCard = document.getElementById('extracted-preview-card');
+    const methodBadge = document.getElementById('extracted-method-badge');
+    const previewName = document.getElementById('preview-name');
+    const previewEmail = document.getElementById('preview-email');
+    const btnUseName = document.getElementById('btn-use-name');
+    const btnUseEmail = document.getElementById('btn-use-email');
+    const previewBranch = document.getElementById('preview-branch');
+    const previewCgpa = document.getElementById('preview-cgpa');
+    const previewTenth = document.getElementById('preview-tenth');
+    const previewTwelfth = document.getElementById('preview-twelfth');
+    const previewStipend = document.getElementById('preview-stipend');
+    const previewSkillsContainer = document.getElementById('preview-skills-container');
+    const previewSkillsList = document.getElementById('preview-skills-list');
+
+    // Storage Initialization
+    const savedProvider = localStorage.getItem(STORAGE_KEY_PROVIDER);
+    if (savedProvider && providerSelect.querySelector(`option[value="${savedProvider}"]`)) {
+        providerSelect.value = savedProvider;
+    }
+    const savedKey = localStorage.getItem(STORAGE_KEY_TOKEN);
+    if (savedKey) {
+        customKeyInput.value = savedKey;
+        keyStatusLabel.innerText = 'Key Configured';
+        keyStatusLabel.classList.add('text-emerald-400');
+        savedKeyIndicator.classList.remove('hidden');
+    }
+
+    toggleKeyBtn.addEventListener('click', () => keyPanel.classList.toggle('hidden'));
+
+    saveKeyBtn.addEventListener('click', () => {
+        const val = customKeyInput.value.trim();
+        if (val) {
+            localStorage.setItem(STORAGE_KEY_TOKEN, val);
+            keyStatusLabel.innerText = 'Key Configured';
+            keyStatusLabel.classList.add('text-emerald-400');
+            savedKeyIndicator.classList.remove('hidden');
+            keyPanel.classList.add('hidden');
+        } else {
+            localStorage.removeItem(STORAGE_KEY_TOKEN);
+            keyStatusLabel.innerText = 'API Key';
+            keyStatusLabel.classList.remove('text-emerald-400');
+            savedKeyIndicator.classList.add('hidden');
+        }
+    });
+
+    providerSelect.addEventListener('change', () => {
+        localStorage.setItem(STORAGE_KEY_PROVIDER, providerSelect.value);
+        document.getElementById('hidden-provider').value = providerSelect.value;
+    });
+
+    toggleVisibilityBtn.addEventListener('click', () => {
+        const isPassword = customKeyInput.type === 'password';
+        customKeyInput.type = isPassword ? 'text' : 'password';
+        toggleVisibilityBtn.innerHTML = isPassword ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+    });
+
+    // Drop Zone Handling
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-azure-400', 'bg-obsidian-950');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-azure-400', 'bg-obsidian-950');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-azure-400', 'bg-obsidian-950');
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            handleResumeUpload(e.dataTransfer.files[0]);
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            handleResumeUpload(e.target.files[0]);
+        }
+    });
+
+    function handleResumeUpload(file) {
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+            alert('Please select a valid PDF document.');
+            return;
+        }
+
+        fileNameSpan.innerText = `Ingested: ${file.name}`;
+        fileSuccess.classList.remove('hidden');
+        spinner.classList.remove('hidden');
+        previewCard.classList.add('hidden');
+
+        const activeProvider = providerSelect.value;
+        const activeKey = customKeyInput.value.trim() || localStorage.getItem(STORAGE_KEY_TOKEN) || '';
+
+        document.getElementById('hidden-api-key').value = activeKey;
+        document.getElementById('hidden-provider').value = activeProvider;
+
+        const providerLabel = activeProvider === 'groq' ? 'Groq Qwen/LLaMA Engine' : (activeProvider === 'huggingface' ? 'Hugging Face' : 'LLM Engine');
+        statusText.innerText = `Ingesting via ${providerLabel}...`;
+        substatusText.innerText = 'Extracting multi-column text tables via PyMuPDF...';
+
+        setTimeout(() => {
+            if (!spinner.classList.contains('hidden')) {
+                substatusText.innerText = `Synthesizing structured entities via ${providerLabel}...`;
+            }
+        }, 800);
+
+        const formData = new FormData();
+        formData.append('resume_pdf', file);
+        formData.append('provider', activeProvider);
+        if (activeKey) formData.append('api_key', activeKey);
+
+        fetch('/api/parse-resume/', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(res => {
+            spinner.classList.add('hidden');
+            if (res.success && res.data) {
+                const data = res.data;
+
+                // Form values auto-population
+                if (data.cgpa !== undefined && data.cgpa !== null) document.getElementById('field-cgpa').value = data.cgpa;
+                if (data.tenth_percentage !== undefined && data.tenth_percentage !== null) document.getElementById('field-tenth').value = data.tenth_percentage;
+                if (data.twelfth_percentage !== undefined && data.twelfth_percentage !== null) document.getElementById('field-twelfth').value = data.twelfth_percentage;
+                if (data.stipend !== undefined && data.stipend !== null) document.getElementById('field-stipend').value = data.stipend;
+                if (data.branch) document.getElementById('field-branch').value = data.branch;
+
+                const emailInput = document.getElementById('field-email');
+                const usernameInput = document.getElementById('field-username');
+
+                if (data.email && (!emailInput.value || emailInput.value === '')) {
+                    emailInput.value = data.email;
+                }
+                if (data.full_name && (!usernameInput.value || usernameInput.value === '')) {
+                    const cleanUser = data.full_name.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 15);
+                    usernameInput.value = cleanUser;
+                }
+
+                // Field highlight with subtle glowing emerald ring
+                ['field-cgpa', 'field-tenth', 'field-twelfth', 'field-stipend', 'field-branch', 'field-email', 'field-username'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.classList.add('border-emerald-500/80', 'ring-1', 'ring-emerald-500/30');
+                    }
+                });
+
+                aiBadge.innerHTML = `<i class="fa-solid fa-sparkles text-[10px]"></i> Ingested via ${res.method} (${res.duration}s)`;
+                aiBadge.classList.remove('hidden');
+
+                // Update Preview Card
+                methodBadge.innerHTML = `<i class="fa-solid fa-bolt text-amber-300"></i> ${res.method} &bull; ${res.duration}s`;
+                
+                previewName.innerText = data.full_name || 'Detected Candidate';
+                if (data.full_name) {
+                    btnUseName.classList.remove('hidden');
+                    btnUseName.onclick = () => {
+                        usernameInput.value = data.full_name.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 15);
+                    };
+                }
+
+                previewEmail.innerText = data.email || 'No email identified';
+                if (data.email) {
+                    btnUseEmail.classList.remove('hidden');
+                    btnUseEmail.onclick = () => {
+                        emailInput.value = data.email;
+                    };
+                }
+
+                previewBranch.innerText = data.branch || '-';
+                previewCgpa.innerText = data.cgpa ? `${data.cgpa}` : '-';
+                previewTenth.innerText = data.tenth_percentage ? `${data.tenth_percentage}%` : '-';
+                previewTwelfth.innerText = data.twelfth_percentage ? `${data.twelfth_percentage}%` : '-';
+                previewStipend.innerText = data.stipend ? `₹${parseInt(data.stipend).toLocaleString('en-IN')}` : '₹0';
+
+                // Skill Chips
+                if (data.skills && data.skills.length > 0) {
+                    previewSkillsList.innerHTML = '';
+                    data.skills.forEach(skill => {
+                        const chip = document.createElement('span');
+                        chip.className = 'px-2.5 py-1 text-[11px] rounded-lg font-mono font-medium bg-obsidian-950 border border-slate-800 text-azure-300';
+                        chip.innerText = skill;
+                        previewSkillsList.appendChild(chip);
+                    });
+                    previewSkillsContainer.classList.remove('hidden');
+                } else {
+                    previewSkillsContainer.classList.add('hidden');
+                }
+
+                previewCard.classList.remove('hidden');
+            } else {
+                alert(`Resume parsing warning: ${res.error || 'Failed to extract entities'}`);
+            }
+        })
+        .catch(err => {
+            console.error('Parsing error:', err);
+            spinner.classList.add('hidden');
+            alert('Error connecting to resume extraction API.');
+        });
+    }
+</script>
+{% endblock %}

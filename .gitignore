@@ -1,0 +1,65 @@
+# Python cache and bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments & secret configuration
+.env
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Django runtime files
+sp3s_web/db.sqlite3
+sp3s_web/db.sqlite3-journal
+sp3s_web/staticfiles/
+sp3s_web/media/resumes/*
+!sp3s_web/media/resumes/.gitkeep
+
+# Reports, documents, presentations, and archives
+*.pdf
+*.pptx
+*.zip
+
+# LaTeX source & build artifacts
+*.tex
+*.aux
+*.log
+*.bbl
+*.blg
+*.out
+*.toc
+*.synctex.gz
+
+# IDEs & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Agent & AI workspace files
+.agents/
